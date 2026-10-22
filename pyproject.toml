@@ -1,5 +1,5 @@
 [project]
-name = "mta-project"
+name = "mta-web-ui"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -17,7 +17,7 @@ dependencies = [
 ]
 
 [project.scripts]
-server = "mta_project.mta_server:main"
+server = "mta_web_ui.mta_server:main"
 
 [build-system]
 requires = ["uv_build>=0.13.0,<0.14.0"]

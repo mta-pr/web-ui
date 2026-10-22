@@ -750,6 +750,18 @@ def load_env_file(path):
     return True
 
 
+def migrate_database():
+    """Bring the database to the latest Alembic revision."""
+    from alembic import command
+    from alembic.config import Config
+
+    config = Config()
+    config.set_main_option(
+        "script_location", str(Path(__file__).parent / "migrations")
+    )
+    command.upgrade(config, "head")
+
+
 def main():
     """Entry point for `uv run server`; host/port from UVICORN_HOST/UVICORN_PORT."""
     import argparse
@@ -762,6 +774,7 @@ def main():
     if not load_env_file(args.env_file):
         logger.warning("env file %s not found", args.env_file)
 
+    migrate_database()
     uvicorn.run(
         app,
         host=os.getenv("UVICORN_HOST", "127.0.0.1"),

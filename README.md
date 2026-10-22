@@ -22,7 +22,7 @@ MTA-project/
 ├── uv.lock, .python-version, .gitignore
 ├── README.md               # этот файл
 ├── alembic.ini             # конфигурация Alembic
-├── migrations/versions/    # 0001 — базовая схема, 0002 — таблица device_errors
+├── src/mta_project/migrations/versions/  # 0001 — базовая схема, 0002 — device_errors, 0003 — эмулятор
 ├── mta.db                  # SQLite-база (закоммичена как временная)
 ├── .env.example            # шаблон конфигурации (рабочий .env в git не попадает)
 ├── src/mta_project/

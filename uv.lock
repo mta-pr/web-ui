@@ -212,7 +212,7 @@ wheels = [
 ]
 
 [[package]]
-name = "mta-project"
+name = "mta-web-ui"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

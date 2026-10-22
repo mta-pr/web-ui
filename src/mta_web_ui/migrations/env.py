@@ -7,7 +7,7 @@ from sqlalchemy import pool
 from alembic import context
 from sqlmodel import SQLModel
 
-from mta_project import models  # noqa: F401  (registers tables)
+from mta_web_ui import models  # noqa: F401  (registers tables)
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
