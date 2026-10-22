@@ -22,11 +22,12 @@ MTA-project/
 ├── uv.lock, .python-version, .gitignore
 ├── README.md               # этот файл
 ├── alembic.ini             # конфигурация Alembic
-├── src/mta_project/migrations/versions/  # 0001 — базовая схема, 0002 — device_errors, 0003 — эмулятор
-├── mta.db                  # SQLite-база (закоммичена как временная)
+├── src/mta_web_ui/migrations/versions/  # 0001 — базовая схема, 0002 — device_errors, 0003 — эмулятор
+├── mta.db                  # SQLite-база (создаётся миграциями при старте)
 ├── .env.example            # шаблон конфигурации (рабочий .env в git не попадает)
-├── src/mta_project/
+├── src/mta_web_ui/
 │   ├── __init__.py         # пустой
+│   ├── models.py           # SQLModel-модели таблиц
 │   └── mta_server.py       # FastAPI-приложение
 └── tests/
     ├── virtualmta.py       # виртуальный автомат + интерактивный эмулятор (п. 6)
@@ -179,22 +180,21 @@ FastAPI-приложение; Swagger, ReDoc и OpenAPI отключены. Со
 API — в `tests/test_api.py` (`uv run --group test pytest`).
 
 ```
-uv run python tests/virtualmta.py seed    # один раз
 export MTA_DEVICE_KEY=<ключ из MTA_DEVICE_KEYS>
-uv run python tests/virtualmta.py run
+uv run python tests/virtualmta.py
 ```
 
-| Подкоманда | Назначение |
-|---|---|
-| `seed` | добавляет в SQLite автомат, товар `WATER_05` и нулевые остатки; остатки обязательны, иначе сервер отвечает на `LOAD` 400 «Inventory record not found» |
-| `run` | интерактивный режим: сам шлёт только heartbeat (по умолчанию каждые 10 с), события — по клавишам 1–9 |
+Автомат `MTA-001`, товар `WATER_05` и нулевой остаток создаёт миграция
+`0003` (без остатка сервер отвечает на `LOAD` 400 «Inventory record not found»),
+отдельная подготовка БД не нужна. Скрипт работает в интерактивном режиме: сам шлёт
+только heartbeat (по умолчанию каждые 10 с), события — по клавишам 1–9.
 
-Клавиши `run` (Enter не нужен; `h` — справка, `q` или Ctrl+C — выход):
+Клавиши (Enter не нужен; `h` — справка, `q` или Ctrl+C — выход):
 
 | Клавиша | Действие |
 |---|---|
 | `1` | `SALE`: `WATER_05` (единственный товар прошивки) |
-| `5` | `LOAD`: +10 шт. каждого товара (после `seed` остатки нулевые, без загрузки продажи отклоняются) |
+| `5` | `LOAD`: +10 шт. каждого товара (остатки изначально нулевые, без загрузки продажи отклоняются) |
 | `6` | повтор последней продажи с тем же `event_id` (ожидается `already_accepted`) |
 | `7` | `ERROR_SET`: следующий неактивный код из `COIN_JAM`, `DISPENSER_STUCK`, `COOLING_FAIL` |
 | `8` | `ERROR_CLEAR`: снять последнюю ошибку |
@@ -207,5 +207,5 @@ uv run python tests/virtualmta.py run
 `DISPENSING`, `SUCCESS`, `EMPTY`, `SERVICE`, `SERVICE_DISPENSING`,
 `WAIT_CLEAR_DISPENSER`, `WAIT_SHUTTER_CLOSE`, `ERROR`; как в прошивке v0.3.10
 вход в `ERROR` сам шлёт `ERROR_SET`, выход — `ERROR_CLEAR`); при открытой ошибке продажа невозможна.
-Параметр `run`: `--heartbeat` (период, с). Без терминала (pipe) клавиши
+Параметр: `--heartbeat` (период, с). Без терминала (pipe) клавиши
 читаются из stdin, на EOF эмулятор завершается.

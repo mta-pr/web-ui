@@ -78,7 +78,7 @@ def server_url(db_path, device_key, tmp_path_factory):
     log = (tmp_path_factory.mktemp("log") / "server.log").open("w")
     proc = subprocess.Popen(
         [
-            sys.executable, "-m", "uvicorn", "mta_project.mta_server:app",
+            sys.executable, "-m", "uvicorn", "mta_web_ui.mta_server:app",
             "--host", "127.0.0.1", "--port", str(port), "--log-level", "warning",
         ],
         cwd=ROOT,

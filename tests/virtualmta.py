@@ -1,24 +1,20 @@
 """Виртуальный торговый автомат для тестов и интерактивный эмулятор.
 
 Класс VirtualMTA используется в pytest-тестах; запуск как скрипта даёт
-интерактивный эмулятор.
+интерактивный эмулятор: heartbeat по таймеру, клавиши 1-9 генерируют события.
 
-Подкоманды:
-
-    seed   - добавить автомат, товары и нулевые остатки в SQLite-файл
-    run    - heartbeat по таймеру; клавиши 1-9 генерируют события
+Автомат MTA-001, товар WATER_05 и нулевой остаток создаёт миграция Alembic
+(`alembic upgrade head`, её же применяет `uv run server`).
 
 Настройка через переменные окружения или аргументы:
 
     MTA_URL         (по умолчанию http://127.0.0.1:8001)
     MTA_DEVICE_ID   (по умолчанию MTA-001)
     MTA_DEVICE_KEY  ключ устройства (тот же, что в MTA_DEVICE_KEYS сервера)
-    MTA_DB_PATH     путь к SQLite-файлу для seed (по умолчанию mta.db)
 
 Пример:
 
-    uv run python tests/virtualmta.py seed
-    MTA_DEVICE_KEY=... uv run python tests/virtualmta.py run --heartbeat 5
+    MTA_DEVICE_KEY=... uv run python tests/virtualmta.py --heartbeat 5
 """
 
 import argparse
@@ -26,7 +22,6 @@ import contextlib
 import enum
 import json
 import os
-import sqlite3
 import sys
 import time
 import urllib.error
@@ -34,6 +29,8 @@ import urllib.request
 import uuid
 from datetime import datetime, timezone
 from typing import Any
+
+from mta_web_ui.models import EventType
 
 
 class MTAState(enum.StrEnum):
@@ -141,7 +138,7 @@ class VirtualMTA:
 
     def event(
         self,
-        event_type: str,
+        event_type: EventType,
         data: dict,
         session_id: str | None = None,
         event_id: str | None = None,
@@ -161,15 +158,15 @@ class VirtualMTA:
     # --- складские события -------------------------------------------------
 
     def load(self, product_id: str, quantity: int) -> tuple[dict, int, Any]:
-        return self.event("LOAD", {"product_id": product_id, "quantity": quantity})
+        return self.event(EventType.LOAD, {"product_id": product_id, "quantity": quantity})
 
     def unload(self, product_id: str, quantity: int) -> tuple[dict, int, Any]:
-        return self.event("UNLOAD", {"product_id": product_id, "quantity": quantity})
+        return self.event(EventType.UNLOAD, {"product_id": product_id, "quantity": quantity})
 
     # --- ошибки ------------------------------------------------------------
 
     def set_error(self, code: str) -> tuple[dict, int, Any]:
-        result = self.event("ERROR_SET", {"error_code": code})
+        result = self.event(EventType.ERROR_SET, {"error_code": code})
         if result[1] == 200:
             if code not in self.active_errors:
                 self.active_errors.append(code)
@@ -177,7 +174,7 @@ class VirtualMTA:
         return result
 
     def clear_error(self, code: str) -> tuple[dict, int, Any]:
-        result = self.event("ERROR_CLEAR", {"error_code": code})
+        result = self.event(EventType.ERROR_CLEAR, {"error_code": code})
         if result[1] == 200:
             if code in self.active_errors:
                 self.active_errors.remove(code)
@@ -230,7 +227,7 @@ class VirtualMTA:
         self.tray_occupied = True  # банка лежит в лотке до тех пор, пока её не заберут
 
         result = self.event(
-            "SALE",
+            EventType.SALE,
             {
                 "product_id": self.product_id,
                 "price": price,
@@ -282,12 +279,12 @@ class VirtualMTA:
             )
             if self._fault not in self.active_errors:
                 self.active_errors.append(self._fault)
-            return self.event("ERROR_SET", {"error_code": self._fault})
+            return self.event(EventType.ERROR_SET, {"error_code": self._fault})
         if old == MTAState.ERROR and new != MTAState.ERROR and self._fault:
             fault, self._fault = self._fault, None
             if fault in self.active_errors:
                 self.active_errors.remove(fault)
-            return self.event("ERROR_CLEAR", {"error_code": fault})
+            return self.event(EventType.ERROR_CLEAR, {"error_code": fault})
         return None
 
     def _readiness(
@@ -383,38 +380,6 @@ ERROR_CODES = ("COIN_JAM", "DISPENSER_STUCK", "COOLING_FAIL")
 LOAD_QUANTITY = 10
 
 
-# --- seed ------------------------------------------------------------------
-
-
-def cmd_seed(args):
-    conn = sqlite3.connect(args.db)
-    try:
-        conn.execute("PRAGMA foreign_keys = ON")
-        with conn:
-            conn.execute(
-                "INSERT OR IGNORE INTO devices (device_id, name, location)"
-                " VALUES (?, ?, ?)",
-                (args.device_id, "Emulated vending machine", "Test lab"),
-            )
-            for product_id, (name, _price) in DEFAULT_PRODUCTS.items():
-                conn.execute(
-                    "INSERT OR IGNORE INTO products (product_id, name) VALUES (?, ?)",
-                    (product_id, name),
-                )
-                conn.execute(
-                    "INSERT OR IGNORE INTO inventory"
-                    " (device_id, product_id, quantity) VALUES (?, ?, 0)",
-                    (args.device_id, product_id),
-                )
-    finally:
-        conn.close()
-    print(
-        "seeded {} and {} products into {}".format(
-            args.device_id, len(DEFAULT_PRODUCTS), args.db
-        )
-    )
-
-
 # --- run -------------------------------------------------------------------
 
 
@@ -487,7 +452,7 @@ def handle_key(machine, key, last_sale):
             report(
                 "SALE retry",
                 machine.event(
-                    "SALE",
+                    EventType.SALE,
                     last_sale["data"],
                     session_id=last_sale["session_id"],
                     event_id=last_sale["event_id"],
@@ -594,20 +559,10 @@ def main(argv=None):
     parser.add_argument("--url", default=os.getenv("MTA_URL", "http://127.0.0.1:8001"))
     parser.add_argument("--device-id", default=os.getenv("MTA_DEVICE_ID", "MTA-001"))
     parser.add_argument("--key", default=os.getenv("MTA_DEVICE_KEY"))
-    sub = parser.add_subparsers(dest="command", required=True)
-
-    seed = sub.add_parser("seed", help="создать автомат и товары в SQLite")
-    seed.add_argument("--db", default=os.getenv("MTA_DB_PATH", "mta.db"))
-    seed.set_defaults(func=cmd_seed)
-
-    run = sub.add_parser("run", help="heartbeat по таймеру; клавиши 1-9 шлют события")
-    run.add_argument(
+    parser.add_argument(
         "--heartbeat", type=float, default=10.0, help="период heartbeat, с"
     )
-    run.set_defaults(func=cmd_run)
-
-    args = parser.parse_args(argv)
-    args.func(args)
+    cmd_run(parser.parse_args(argv))
 
 
 if __name__ == "__main__":

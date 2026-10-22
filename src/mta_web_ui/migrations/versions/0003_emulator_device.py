@@ -19,8 +19,8 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Same data as `virtualmta.py seed`. OR IGNORE: the rows may already
-    # exist in databases filled by hand.
+    # Data for the emulator in tests/virtualmta.py. OR IGNORE: the rows may
+    # already exist in databases filled by hand.
     op.execute("""
         INSERT OR IGNORE INTO devices
             (device_id, name, location, machine_state, active_error, last_seen)
