@@ -39,12 +39,16 @@ def device_key() -> str:
 
 @pytest.fixture(scope="session")
 def db_path(tmp_path_factory) -> Path:
-    """Пустая БД со схемой из mta_schema.sql + mta_errors.sql."""
+    """Пустая БД со схемой, созданной миграциями Alembic."""
     path = tmp_path_factory.mktemp("mta") / "test.db"
+    subprocess.run(
+        [sys.executable, "-m", "alembic", "upgrade", "head"],
+        cwd=ROOT,
+        env={**os.environ, "MTA_DB_PATH": str(path)},
+        check=True,
+    )
     conn = sqlite3.connect(path)
     try:
-        for script in ("mta_schema.sql", "mta_errors.sql"):
-            conn.executescript((ROOT / script).read_text())
         conn.executemany(
             "INSERT INTO products (product_id, name) VALUES (?, ?)",
             [(pid, pid.title()) for pid in PRODUCTS],

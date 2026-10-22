@@ -12,7 +12,7 @@
 | Менеджер проекта | `uv` (`uv.lock`, сборка через `uv_build`) |
 | Зависимости | `fastapi`, `uvicorn`, `python-multipart` (формы логина) |
 | СУБД | SQLite3, файл `mta.db` (проект мигрировал с PostgreSQL) |
-| Версии компонентов | Сервер — «v1.5, stage 2»; монитор — «MTA Monitor 1.0»; SQL-скрипт ошибок — «v1.3» |
+| Версии компонентов | Сервер — «v1.5, stage 2»; монитор — «MTA Monitor 1.0»; миграция ошибок — «v1.3» |
 
 ## 2. Структура репозитория
 
@@ -21,8 +21,8 @@ MTA-project/
 ├── pyproject.toml          # метаданные, зависимости, сборка
 ├── uv.lock, .python-version, .gitignore
 ├── README.md               # этот файл
-├── mta_schema.sql          # базовая схема БД
-├── mta_errors.sql          # расширение схемы: таблица device_errors
+├── alembic.ini             # конфигурация Alembic
+├── migrations/versions/    # 0001 — базовая схема, 0002 — таблица device_errors
 ├── mta.db                  # SQLite-база (закоммичена как временная)
 ├── .env.example            # шаблон конфигурации (рабочий .env в git не попадает)
 ├── src/mta_project/
@@ -41,7 +41,7 @@ MTA-project/
 с хронологическим. Внешние ключи включаются на каждом соединении
 (`PRAGMA foreign_keys = ON`).
 
-### `mta_schema.sql` (применять первым)
+### Миграция `0001` (базовая схема)
 
 - `devices` — автоматы: `device_id` (PK), `name`, `location`,
   `machine_state` (по умолчанию `IDLE`), `active_error` (по умолчанию `NONE`),
@@ -56,7 +56,7 @@ MTA-project/
   FK на устройство, товар и событие (`event_id` UNIQUE), `price > 0`,
   `payment`, `dispense`, `sold_at`. Индекс `sales_device_time (device_id, sold_at DESC)`.
 
-### `mta_errors.sql` (применять вторым)
+### Миграция `0002` (таблица ошибок)
 
 - `device_errors` — интервалы неисправностей: `error_code`, `occurred_at`,
   `cleared_at`, `set_event_id` и `clear_event_id` (UNIQUE, FK на `events`),
@@ -67,12 +67,21 @@ MTA-project/
   не более одной активной ошибки каждого кода на устройство.
 - Индекс `device_errors_device_timeline (device_id, occurred_at DESC)`.
 
-Инициализация базы:
+Схемой управляет Alembic; путь к базе берётся из `MTA_DB_PATH`
+(по умолчанию `mta.db`):
 
 ```
-sqlite3 mta.db < mta_schema.sql
-sqlite3 mta.db < mta_errors.sql
+uv run alembic upgrade head       # создать / обновить схему
+uv run alembic downgrade -1       # откатить последнюю миграцию
+uv run alembic revision --autogenerate -m "описание"   # новая миграция по models.py
 ```
+
+Миграции `0001` и `0002` написаны на `CREATE ... IF NOT EXISTS`, поэтому
+базу, созданную прежними скриптами `mta_schema.sql` / `mta_errors.sql`
+(например, текущий `mta.db`), можно просто привести к `head` командой
+`upgrade head`. Автогенерация не умеет сравнивать индексы с `DESC` и
+nullable у `INTEGER PRIMARY KEY` в SQLite, поэтому `alembic check` и
+сгенерированные миграции нужно просматривать вручную.
 
 ## 4. Серверное приложение (`mta_server.py`)
 
