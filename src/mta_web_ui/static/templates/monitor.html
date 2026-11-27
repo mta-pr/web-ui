@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>MTA Monitor 1.0</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family:  system-ui, -apple-system, "Segoe UI", sans-serif;
+        background:   #0c1421;
+        color:        #eef4ff
+      }
+
+      * {
+        box-sizing: border-box
+      }
+
+      body {
+        margin:  0;
+        padding: 24px
+      }
+
+      main {
+        max-width: 1120px;
+        margin:    auto
+      }
+
+      header {
+        display:         flex;
+        justify-content: space-between;
+        align-items:     center;
+        gap:             16px;
+        flex-wrap:       wrap;
+        margin-bottom:   22px
+      }
+
+      h1 {
+        margin:         0;
+        font-size:      27px;
+        letter-spacing: .3px
+      }
+
+      .sub {
+        color:      #9eb0c8;
+        font-size:  14px;
+        margin-top: 5px
+      }
+
+      #updated {
+        color:     #9eb0c8;
+        font-size: 13px
+      }
+
+      .grid {
+        display:               grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap:                   14px
+      }
+
+      .card {
+        background:    #152235;
+        border:        1px solid #2b3b52;
+        border-radius: 14px;
+        padding:       20px;
+        min-width:     0
+      }
+
+      .card .label {
+        color:         #9eb0c8;
+        font-size:     13px;
+        margin-bottom: 12px
+      }
+
+      .big {
+        font-size:     28px;
+        font-weight:   750;
+        overflow-wrap: anywhere
+      }
+
+      .ok {
+        color: #65dbac
+      }
+
+      .bad {
+        color: #ff8b8b
+      }
+
+      .warn {
+        color: #f6ca79
+      }
+
+      .muted {
+        color: #9eb0c8
+      }
+
+      section {
+        margin-top: 22px
+      }
+
+      h2 {
+        font-size: 18px;
+        margin:    0 0 12px
+      }
+
+      .tablewrap {
+        overflow:      auto;
+        border:        1px solid #2b3b52;
+        border-radius: 12px
+      }
+
+      table {
+        border-collapse: collapse;
+        width:           100%;
+        background:      #152235;
+        font-size:       14px
+      }
+
+      th,
+      td {
+        padding:       13px 16px;
+        text-align:    left;
+        border-bottom: 1px solid #2b3b52;
+        white-space:   nowrap
+      }
+
+      th {
+        color:       #a6bad2;
+        font-weight: 600
+      }
+
+      tr:last-child td {
+        border-bottom: 0
+      }
+
+      .empty {
+        color: #9eb0c8
+      }
+
+      #error {
+        display:       none;
+        margin:        14px 0;
+        padding:       12px;
+        border-radius: 10px;
+        background:    #4c242a;
+        color:         #ffd4d4
+      }
+
+      footer {
+        color:      #8297b2;
+        font-size:  12px;
+        margin-top: 24px
+      }
+
+      code {
+        font-size: 12px;
+        color:     #b3d4ff
+      }
+
+      @media(max-width:720px) {
+        body {
+          padding: 14px
+        }
+
+        .grid {
+          grid-template-columns: 1fr
+        }
+
+        h1 {
+          font-size: 23px
+        }
+      }
+
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <h1>◉ MTA Monitor <span class="muted">1.0</span></h1>
+          <div class="sub" id="deviceTitle">MTA-001 · Мониторинг автомата</div>
+        </div>
+        <div id="updated">Подключение...</div>
+      </header>
+      <div id="error" role="alert"></div>
+      <div class="grid">
+        <div class="card">
+          <div class="label">Связь</div>
+          <div class="big" id="communication">—</div>
+          <div class="sub" id="lastSeen">—</div>
+        </div>
+        <div class="card">
+          <div class="label">Состояние МТА</div>
+          <div class="big" id="state">—</div>
+          <div class="sub" id="activeError">—</div>
+        </div>
+        <div class="card">
+          <div class="label">Остаток товара</div>
+          <div class="big" id="stock">—</div>
+          <div class="sub" id="stockDetails">—</div>
+        </div>
+      </div>
+      <section>
+        <h2>Последние продажи</h2>
+        <div class="tablewrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Время</th>
+                <th>Товар</th>
+                <th>Цена</th>
+                <th>Сессия</th>
+              </tr>
+            </thead>
+            <tbody id="sales">
+              <tr>
+                <td colspan="4" class="empty">Загрузка...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <section>
+        <h2>История ошибок</h2>
+        <div class="tablewrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Возникла</th>
+                <th>Ошибка</th>
+                <th>Устранена</th>
+                <th>Статус</th>
+              </tr>
+            </thead>
+            <tbody id="errors">
+              <tr>
+                <td colspan="4" class="empty">Загрузка...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <form action="/logout" method="post" style="text-align:right;margin-top:18px"><button type="submit" style="background:#263b54;border:1px solid #49617c;color:#eef4ff;border-radius:9px;padding:10px 20px;cursor:pointer">Выйти</button></form>
+      <footer>Только просмотр · Обновление каждые 10 секунд · Время отображается в часовом поясе браузера</footer>
+    </main>
+    <script>
+      'use strict';
+      const id = 'MTA-001';
+      const el = name => document.getElementById(name);
+      const date = v => v ? new Date(v).toLocaleString('ru-RU') : '—';
+
+      function cell(row, value, cls) {
+        const td = document.createElement('td');
+        td.textContent = String(value ?? '—');
+        if (cls) td.className = cls;
+        row.appendChild(td)
+      }
+
+      function table(name, items, cols, build) {
+        const body = el(name);
+        body.replaceChildren();
+        if (!items.length) {
+          const tr = document.createElement('tr');
+          const td = document.createElement('td');
+          td.colSpan = cols;
+          td.className = 'empty';
+          td.textContent = 'Записей пока нет';
+          tr.appendChild(td);
+          body.appendChild(tr);
+          return
+        }
+        for (const item of items) {
+          const tr = document.createElement('tr');
+          build(tr, item);
+          body.appendChild(tr)
+        }
+      }
+      async function refresh() {
+        try {
+          const response = await fetch('/api/v1/monitor/' + encodeURIComponent(id), {
+            cache: 'no-store'
+          });
+          if (!response.ok) throw new Error('HTTP ' + response.status);
+          const result = await response.json(),
+            d = result.device;
+          el('error').style.display = 'none';
+          el('deviceTitle').textContent = [d.device_id, d.name, d.location].filter(Boolean).join(' · ');
+          el('communication').textContent = d.communication;
+          el('communication').className = 'big ' + (d.communication === 'ONLINE' ? 'ok' : 'bad');
+          el('lastSeen').textContent = 'Последняя связь: ' + date(d.last_seen);
+          el('state').textContent = d.machine_state;
+          el('state').className = 'big ' + (d.machine_state === 'ERROR' ? 'bad' : d.machine_state === 'IDLE' ? 'ok' : 'warn');
+          el('activeError').textContent = 'Ошибка: ' + d.active_error;
+          el('stock').textContent = result.inventory.reduce((sum, item) => sum + Number(item.quantity), 0) + ' шт.';
+          el('stockDetails').textContent = result.inventory.map(i => i.product_id + ': ' + i.quantity).join(' · ') || 'Нет данных об остатках';
+          table('sales', result.sales, 4, (tr, s) => {
+            cell(tr, date(s.sold_at));
+            cell(tr, s.product_id);
+            cell(tr, s.price);
+            cell(tr, s.session_id)
+          });
+          table('errors', result.errors, 4, (tr, e) => {
+            cell(tr, date(e.occurred_at));
+            cell(tr, e.error_code);
+            cell(tr, date(e.cleared_at));
+            cell(tr, e.cleared_at ? 'Закрыта' : 'АКТИВНА', e.cleared_at ? 'ok' : 'bad')
+          });
+          el('updated').textContent = 'Обновлено: ' + new Date().toLocaleTimeString('ru-RU');
+        } catch (err) {
+          el('error').style.display = 'block';
+          el('error').textContent = 'Нет данных от сервера: ' + err.message;
+          el('updated').textContent = 'Ошибка обновления';
+        }
+      }
+      refresh();
+      setInterval(refresh, 10000);
+    </script>
+  </body>
+</html>
